@@ -13,15 +13,17 @@ public abstract class BaseValidationRule
     {
         var exceptions = new List<Exception>();
 
-        ExceptionsCatchingHelper.TryCatch(exceptions, Rule);
+        ExceptionsCatchingHelper.TryCatch(exceptions, () => {
+            Rule.Invoke();
 
-        if (DependentRules.Any())
-        {
-            foreach (var dependentRule in DependentRules)
+            if (DependentRules.Any())
             {
-                ExceptionsCatchingHelper.TryCatch(exceptions, dependentRule.Validate);
+                foreach (var dependentRule in DependentRules)
+                {
+                    ExceptionsCatchingHelper.TryCatch(exceptions, dependentRule.Validate);
+                }
             }
-        }
+        });
 
         if (exceptions.Any())
         {
@@ -30,16 +32,43 @@ public abstract class BaseValidationRule
     }
 }
 
+public class DynamicValidationRule : BaseValidationRule
+{
+    public DynamicValidationRule(Action rule)
+    {
+        Rule = rule;
+    }
+}
+
 public class MessageEmployeurObligatoireValidationRule : BaseValidationRule
 {
-    public MessageEmployeurObligatoireValidationRule(string messageEmployeur)
+    public MessageEmployeurObligatoireValidationRule(string messageEmployeur, int statutCurrent, int statutNew)
         : base()
     {
         Rule = () =>
         {
-            if (string.IsNullOrWhiteSpace(messageEmployeur))
+            if ((statutNew == 4
+                || statutNew == 5
+                || statutNew == 6
+                || (statutNew == 7 && (statutCurrent == 9 || statutCurrent == 10)))
+                && string.IsNullOrWhiteSpace(messageEmployeur))
             {
                 throw new DomainException("C'est de la merde");
+            }
+        };
+    }
+}
+
+public class MessageEmployeurPasAutoriseValidationRule : BaseValidationRule
+{
+    public MessageEmployeurPasAutoriseValidationRule(string messageEmployeur)
+        : base()
+    {
+        Rule = () =>
+        {
+            if (!string.IsNullOrWhiteSpace(messageEmployeur))
+            {
+                throw new DomainException("Qu'est-ce que tu me fais la?");
             }
         };
     }
